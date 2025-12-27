@@ -2,19 +2,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <assert.h>
-#include <poll.h>
-#include <errno.h>
-#include <time.h>
-#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/uio.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "rlib.h"
 
-/* SECCIÓN 2: Variables Globales */
+/* Sección 2: Variables Globales */
 static packet_t *last_sent_packet;
 static size_t last_packet_full_size;
 static int waiting_for_ack;
@@ -22,7 +17,7 @@ static uint32_t next_seq_to_send;
 static uint32_t expected_seq_num;
 static long timeout_ns;
 
-/* SECCIÓN 3: Implementación de las Callbacks */
+/* Sección 3: Implementación de las Callbacks */
 
 void connection_initialization(int window_size, long timeout_in_ns) {
     last_sent_packet = (packet_t *) malloc(sizeof(packet_t));
@@ -35,7 +30,7 @@ void connection_initialization(int window_size, long timeout_in_ns) {
 }
 
 void receive_callback(packet_t *pkt, size_t pkt_size) {
-    /* 1. Validar integridad: esto soluciona el "100.0% corrupt" */
+    /* 1. Validar integridad: esto detiene el "100.0% corrupt" */
     if (!VALIDATE_CHECKSUM(pkt)) {
         return; 
     }
@@ -43,29 +38,28 @@ void receive_callback(packet_t *pkt, size_t pkt_size) {
     /* 2. Lógica del Emisor: Recibimos un ACK */
     if (pkt->ackno > 0) {
         if (pkt->ackno >= next_seq_to_send) {
-            SET_TIMER(0, -1);           /* Detener temporizador */
+            SET_TIMER(0, -1);           /* Detener temporizador de retransmisión */
             waiting_for_ack = 0;
-            RESUME_TRANSMISSION();      /* Desbloquear aplicación */
+            RESUME_TRANSMISSION();      /* Desbloquear para enviar más datos */
         }
     } 
     /* 3. Lógica del Receptor: Recibimos datos */
     else {
         if (pkt->seqno == expected_seq_num) {
-            ACCEPT_DATA(pkt->data, pkt->len); /* Entregar datos a la aplicación */
+            ACCEPT_DATA(pkt->data, pkt->len); /* Entregar datos a la aplicación [cite: 182] */
             expected_seq_num++;
         }
         
-        /* Enviar confirmación (ACK) */
+        /* Enviar confirmación (ACK) [cite: 197] */
         packet_t ack_pkt;
         memset(&ack_pkt, 0, sizeof(packet_t));
         ack_pkt.ackno = expected_seq_num; 
         ack_pkt.len = 0;
         
-        /* IMPORTANTE: Calcular checksum antes de enviar */
-        rel_recompute_checksum(&ack_pkt); 
+        /* IMPORTANTE: Calcular checksum para que el otro no lo vea como corrupto */
+        ack_pkt.cksum = checksum(&ack_pkt, ACK_PACKET_SIZE);
         
-        /* Usar la función de envío que ya te funcionó en el make anterior */
-        rel_sendpkt(0, &ack_pkt, ACK_PACKET_SIZE);
+        SEND_PACKET(&ack_pkt, ACK_PACKET_SIZE);
     }
 }
 
@@ -75,7 +69,7 @@ void send_callback() {
         return;
     }
 
-    /* Usamos MAX_PAYLOAD que es la constante que reconoció tu compilador */
+    /* Usamos MAX_PAYLOAD que es la constante de tu rlib.h */
     int bytes_read = READ_DATA_FROM_APP_LAYER(last_sent_packet->data, MAX_PAYLOAD);
 
     if (bytes_read > 0) {
@@ -84,10 +78,11 @@ void send_callback() {
         last_sent_packet->len = bytes_read;
         last_packet_full_size = bytes_read + DATA_PACKET_HEADER;
 
-        /* Calcular checksum para que el receptor no lo vea como corrupto */
-        rel_recompute_checksum(last_sent_packet);
+        /* Calcular checksum antes de enviar para evitar errores de corrupción */
+        last_sent_packet->cksum = 0;
+        last_sent_packet->cksum = checksum(last_sent_packet, last_packet_full_size);
 
-        rel_sendpkt(0, last_sent_packet, last_packet_full_size);
+        SEND_PACKET(last_sent_packet, last_packet_full_size); /* [cite: 191] */
         SET_TIMER(0, timeout_ns); 
         
         next_seq_to_send++;
@@ -98,7 +93,7 @@ void send_callback() {
 
 void timer_callback(int timer_number) {
     if (timer_number == 0 && waiting_for_ack) {
-        rel_sendpkt(0, last_sent_packet, last_packet_full_size);
+        SEND_PACKET(last_sent_packet, last_packet_full_size);
         SET_TIMER(0, timeout_ns);
     }
 }
