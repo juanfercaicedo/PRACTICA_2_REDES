@@ -46,11 +46,12 @@ Genera ráfagas de datos de forma automática para medir el *throughput* (rendim
 * **VM 1:** 
 ```bash
     ./reliable 5555 192.168.1.2:6666 -w 5 -s
-    ``` 
+```
+    
 * **VM 2:** 
 ```bash
     ./reliable 6666 192.168.1.1:5555 -w 5 -s
-    ``` 
+``` 
 
 ---
 
