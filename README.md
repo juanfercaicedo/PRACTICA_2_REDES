@@ -43,10 +43,12 @@ Permite el intercambio manual de mensajes de texto a través de la terminal[cite
 #### 2. Modo Sintético (Prueba de Rendimiento)
 Genera ráfagas de datos de forma automática para medir el *throughput* (rendimiento efectivo) del enlace[cite: 5, 8].
 
-* **VM 1:** ```bash
+* **VM 1:** 
+```bash
     ./reliable 5555 192.168.1.2:6666 -w 5 -s
     ``` 
-* **VM 2:** ```bash
+* **VM 2:** 
+```bash
     ./reliable 6666 192.168.1.1:5555 -w 5 -s
     ``` 
 
