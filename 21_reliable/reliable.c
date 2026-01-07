@@ -25,7 +25,8 @@ void connection_initialization(int window_size, long timeout_in_ns) {
 }
 
 void receive_callback(packet_t *pkt, size_t pkt_size) {
-    if (VALIDATE_CHECKSUM(pkt) == 0) return; [cite: 221]
+    // Corregido: Eliminado
+    if (VALIDATE_CHECKSUM(pkt) == 0) return; 
 
     if (IS_ACK_PACKET(pkt)) {
         if (pkt->ackno > base_seq) {
@@ -37,7 +38,8 @@ void receive_callback(packet_t *pkt, size_t pkt_size) {
         }
     } else {
         if (pkt->seqno == expected_seq) {
-            ACCEPT_DATA(pkt->data, pkt->len - DATA_PACKET_HEADER); [cite: 139]
+            // Corregido: Eliminado
+            ACCEPT_DATA(pkt->data, pkt->len - DATA_PACKET_HEADER); 
             expected_seq++;
         }
         SEND_ACK_PACKET(expected_seq); 
@@ -47,7 +49,8 @@ void receive_callback(packet_t *pkt, size_t pkt_size) {
 void send_callback() {
     while (next_seq < base_seq + w_size) {
         char buf[MAX_PAYLOAD];
-        int r = READ_DATA_FROM_APP_LAYER(buf, MAX_PAYLOAD); [cite: 150]
+        // Corregido: Eliminado
+        int r = READ_DATA_FROM_APP_LAYER(buf, MAX_PAYLOAD); 
         
         if (r <= 0) break;
 
@@ -55,13 +58,16 @@ void send_callback() {
         memcpy(window_buffer[idx].data, buf, r);
         window_buffer[idx].len = r;
 
-        SEND_DATA_PACKET(r + DATA_PACKET_HEADER, 0, next_seq, window_buffer[idx].data); [cite: 122]
-        SET_TIMER(idx, t_val); [cite: 154]
+        // Corregido: Eliminado
+        SEND_DATA_PACKET(r + DATA_PACKET_HEADER, 0, next_seq, window_buffer[idx].data); 
+        // Corregido: Eliminado
+        SET_TIMER(idx, t_val); 
         next_seq++;
     }
 
     if (next_seq == base_seq + w_size) {
-        PAUSE_TRANSMISSION(); [cite: 152]
+        // Corregido: Eliminado
+        PAUSE_TRANSMISSION(); 
     }
 }
 
